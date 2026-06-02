@@ -34,4 +34,8 @@ export const api = {
   startSession: (opts) => request('/api/sessions', { method: 'POST', body: opts }),
   logRep: (id, rep) => request(`/api/sessions/${id}/rep`, { method: 'POST', body: rep }),
   finishSession: (id, reps) => request(`/api/sessions/${id}/finish`, { method: 'POST', body: { reps } }),
+  pushKey: () => request('/api/push/key', { auth: false }),
+  pushSubscribe: (subscription, interval_hours) =>
+    request('/api/push/subscribe', { method: 'POST', body: { subscription, interval_hours } }),
+  pushTest: () => request('/api/push/test', { method: 'POST' }),
 };

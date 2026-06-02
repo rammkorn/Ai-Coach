@@ -2,6 +2,8 @@
 // dashboard, avvio dell'allenamento e overlay dei risultati / modalità MAX.
 import { api, getToken, setToken, clearToken } from './api.js';
 import { Workout } from './workout.js';
+import { Cues } from './audio.js';
+import { renderProgressChart } from './chart.js';
 
 const $ = (id) => document.getElementById(id);
 const screens = {
@@ -10,6 +12,7 @@ const screens = {
   workout: $('screen-workout'),
 };
 
+const cues = new Cues();
 let state = { dashboard: null, selectedName: null, currentWorkout: null };
 
 function show(name) {
@@ -114,6 +117,7 @@ function enterDashboard(data) {
   $('plan-summary').textContent = `${n.target_sets} serie × ${n.target_reps} ripetizioni — recupero ${Math.round(n.rest_ms / 1000)}s tra le serie.`;
   $('plan-tempo').textContent = `${(n.tempo_down_ms / 1000).toFixed(1)}s giù · ${(n.tempo_pause_ms / 1000).toFixed(1)}s pausa · ${(n.tempo_up_ms / 1000).toFixed(1)}s su`;
 
+  renderProgressChart($('chart'), data.progress || []);
   renderHistory(data.history);
   show('dash');
 }
@@ -172,6 +176,7 @@ function chooseDetection() {
 // ---------- Schermata 3: allenamento -----------------------------------------
 async function startWorkout(maxMode = false) {
   const detPref = await chooseDetection();
+  cues.unlock(); // sblocca l'audio dopo il gesto utente
   let session;
   try {
     session = await api.startSession({ max_mode: maxMode, detection: detPref });
@@ -200,6 +205,7 @@ async function startWorkout(maxMode = false) {
     sessionId: session.session_id,
     plan: session.plan,
     maxMode,
+    cues,
     onFinish: (result, ctx) => onWorkoutFinish(result, ctx),
   });
   state.currentWorkout = workout;
@@ -253,25 +259,51 @@ function openOverlay(title, body, actions) {
 }
 function closeOverlay() { $('overlay').classList.add('hidden'); }
 
-// ---------- Notifiche / promemoria -------------------------------------------
+// ---------- Notifiche / promemoria (Web Push reale) --------------------------
+function urlBase64ToUint8Array(base64) {
+  const padding = '='.repeat((4 - (base64.length % 4)) % 4);
+  const b64 = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(b64);
+  return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+}
+
 async function setupNotifications() {
-  if (!('Notification' in window)) { alert('Le notifiche non sono supportate su questo dispositivo.'); return; }
+  if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+    alert('Le notifiche push non sono supportate su questo dispositivo/browser.');
+    return;
+  }
   let perm = Notification.permission;
   if (perm === 'default') perm = await Notification.requestPermission();
   if (perm !== 'granted') { alert('Permesso notifiche negato.'); return; }
 
-  // Promemoria locale: in base alle sessioni/giorno consigliate, ricorda di
-  // riprendere. (Per notifiche push reali servirebbe un server di push.)
-  const perDay = (state.dashboard && state.dashboard.next.sessions_per_day) || 1;
-  const hours = Math.max(3, Math.round(24 / (perDay + 1)));
-  alert(`Promemoria attivato! Ti ricorderò di allenarti tra circa ${hours} ore.`);
-  const delay = hours * 3600 * 1000;
-  setTimeout(() => {
-    const reg = navigator.serviceWorker && navigator.serviceWorker.ready;
-    const text = 'È ora di allenarsi! Le tue flessioni ti aspettano. 💪';
-    if (reg) reg.then((r) => r.showNotification('AI Coach Flessioni', { body: text, icon: '/icon.png' }));
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const { publicKey } = await api.pushKey();
+    if (!publicKey) throw new Error('Chiave del server assente');
+
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+    }
+
+    // Intervallo iniziale del promemoria in base alle sessioni/giorno consigliate.
+    const perDay = (state.dashboard && state.dashboard.next.sessions_per_day) || 1;
+    const hours = Math.max(3, Math.round(24 / (perDay + 1)));
+    const res = await api.pushSubscribe(sub, hours);
+    await api.pushTest(); // notifica di conferma immediata
+
+    alert(`Promemoria attivati! 🔔 Ti ricorderò di allenarti circa ogni ${res.interval_hours} ore (anche ad app chiusa, se il server è attivo).`);
+  } catch (e) {
+    // Fallback: notifica locale immediata se il push non è disponibile.
+    const reg = await navigator.serviceWorker.ready.catch(() => null);
+    const text = 'Promemoria attivo su questo dispositivo. 💪';
+    if (reg) reg.showNotification('AI Coach Flessioni', { body: text, icon: '/icon.svg' });
     else new Notification('AI Coach Flessioni', { body: text });
-  }, delay);
+    alert('Promemoria locale attivato (push completo non disponibile qui).');
+  }
 }
 
 // ---------- Util -------------------------------------------------------------
@@ -301,6 +333,14 @@ function wire() {
 
   $('btn-quit').addEventListener('click', quitWorkout);
   $('btn-finish').addEventListener('click', quitWorkout);
+
+  // Interruttore audio (cue vocali + metronomo).
+  $('btn-sound').addEventListener('click', () => {
+    const on = !cues.enabled;
+    cues.setEnabled(on);
+    cues.unlock();
+    $('btn-sound').textContent = on ? '🔊' : '🔇';
+  });
 }
 
 async function init() {

@@ -239,3 +239,13 @@ body.max-mode .phase-label { color: var(--accent); text-transform: uppercase; }
   50% { box-shadow: inset 0 0 120px rgba(239, 68, 68, 0.25); }
 }
 .max-flag { display: inline-block; background: var(--bad); color: #fff; padding: 6px 14px; border-radius: 999px; font-weight: 800; letter-spacing: 1px; margin-bottom: 10px; }
+
+/* ---------- Grafico progressi ---------- */
+#chart svg { display: block; }
+.chart-legend { display: flex; gap: 14px; justify-content: center; margin-top: 8px; color: var(--muted); font-size: 0.75rem; flex-wrap: wrap; }
+.chart-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: middle; margin-right: 4px; }
+
+/* Pulsanti icona più piccoli nella barra allenamento */
+.icon-btn.small-icon { width: 36px; height: 36px; font-size: 1rem; margin-left: 0; }
+.workout-head { gap: 8px; }
+.workout-head .icon-btn { margin-left: 0; }

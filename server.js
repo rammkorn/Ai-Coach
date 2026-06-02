@@ -7,6 +7,7 @@ import { dirname, join } from 'node:path';
 
 import * as store from './src/db.js';
 import { verifyPassword } from './src/db.js';
+import { initPush, getPublicKey, startScheduler, sendToProfile } from './src/push.js';
 import {
   DEFAULT_PLAN,
   nextSessionPlan,
@@ -63,6 +64,7 @@ function buildDashboard(profile) {
     })),
     plan,
     next,
+    progress: store.progressSeries(profile.id, 30),
   };
 }
 
@@ -190,6 +192,13 @@ app.post('/api/sessions/:id/finish', auth, (req, res) => {
   });
   store.savePlanState(profile.id, newPlan);
 
+  // Se i promemoria sono attivi, adatta il prossimo nudge alla frequenza
+  // consigliata: più sessioni al giorno => promemoria più ravvicinati.
+  if (profile.reminder_interval_h) {
+    const adaptiveHours = Math.max(3, Math.round(24 / (newPlan.sessions_per_day + 1)));
+    store.rescheduleReminder(profile.id, adaptiveHours);
+  }
+
   const offerMax = !session.max_mode && shouldOfferMax(newPlan, summary);
 
   res.json({
@@ -209,6 +218,32 @@ app.post('/api/sessions/:id/finish', auth, (req, res) => {
     sessions_per_day: newPlan.sessions_per_day,
   });
 });
+
+// --- Web Push / promemoria ---------------------------------------------------
+app.get('/api/push/key', (req, res) => {
+  res.json({ publicKey: getPublicKey() });
+});
+
+app.post('/api/push/subscribe', auth, (req, res) => {
+  const { subscription, interval_hours } = req.body || {};
+  if (!subscription || !subscription.endpoint) return res.status(400).json({ error: 'Iscrizione non valida' });
+  const hours = Math.max(1, Math.min(48, Number(interval_hours) || 8));
+  store.savePushSub(req.profileId, subscription, hours);
+  res.json({ ok: true, interval_hours: hours });
+});
+
+app.post('/api/push/test', auth, async (req, res) => {
+  await sendToProfile(req.profileId, { title: 'AI Coach Flessioni', body: 'Notifiche attive! Ti ricorderò di allenarti. 💪', url: '/' });
+  res.json({ ok: true });
+});
+
+app.post('/api/push/unsubscribe', auth, (req, res) => {
+  store.clearReminder(req.profileId);
+  res.json({ ok: true });
+});
+
+initPush();
+startScheduler();
 
 app.listen(PORT, () => {
   console.log(`AI Coach Flessioni in ascolto su http://localhost:${PORT}`);

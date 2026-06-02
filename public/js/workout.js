@@ -16,12 +16,15 @@ function getVar(name, fallback) {
 }
 
 export class Workout {
-  constructor(els, { sessionId, plan, maxMode, onFinish }) {
+  constructor(els, { sessionId, plan, maxMode, onFinish, cues }) {
     this.els = els;
     this.sessionId = sessionId;
     this.plan = plan;
     this.maxMode = maxMode;
     this.onFinish = onFinish;
+    this.cues = cues || null;
+    this.wakeLock = null;
+    this._phase = null;
 
     this.totalSets = plan.target_sets;
     this.repsPerSet = maxMode ? plan.planned_reps : plan.target_reps;
@@ -37,10 +40,19 @@ export class Workout {
 
   async start(preferred) {
     this.bindNose();
+    await this.requestWakeLock();
     await this.startDetector(preferred);
     this.startBar();
     this.lastRepTime = performance.now();
     this.updateLabels();
+    if (this.cues) this.cues.say(this.maxMode ? 'Dai il massimo!' : 'Si comincia. Segui il ritmo.');
+  }
+
+  // Mantiene lo schermo acceso durante l'allenamento (dove supportato).
+  async requestWakeLock() {
+    try {
+      if ('wakeLock' in navigator) this.wakeLock = await navigator.wakeLock.request('screen');
+    } catch { /* non supportato/negato: nessun problema */ }
   }
 
   // La barra scorre in ciclo continuo giù→pausa→su per dettare il ritmo ideale.
@@ -55,17 +67,22 @@ export class Workout {
       if (this.finished) return;
       if (this.resting) { this.rafBar = requestAnimationFrame(tick); return; }
       const t = (now - t0) % cycle;
-      let pct, color, phase;
+      let pct, color, phase, key;
       if (t < down) {
-        pct = (t / down) * 100; color = PHASE_COLORS.down; phase = 'GIÙ ↓';
+        pct = (t / down) * 100; color = PHASE_COLORS.down; phase = 'GIÙ ↓'; key = 'down';
       } else if (t < down + pause) {
-        pct = 100; color = PHASE_COLORS.pause; phase = 'PAUSA';
+        pct = 100; color = PHASE_COLORS.pause; phase = 'PAUSA'; key = 'pause';
       } else {
-        pct = 100 - ((t - down - pause) / up) * 100; color = PHASE_COLORS.up; phase = 'SU ↑';
+        pct = 100 - ((t - down - pause) / up) * 100; color = PHASE_COLORS.up; phase = 'SU ↑'; key = 'up';
       }
       bar.style.width = pct + '%';
       bar.style.background = color;
       label.textContent = phase;
+      // Segnale audio al cambio di fase (così si segue il ritmo a occhi bassi).
+      if (key !== this._phase) {
+        this._phase = key;
+        if (this.cues) this.cues[key] && this.cues[key]();
+      }
       this.rafBar = requestAnimationFrame(tick);
     };
     this.rafBar = requestAnimationFrame(tick);
@@ -124,7 +141,8 @@ export class Workout {
     this.els.noseBtn.classList.remove('counted');
     void this.els.noseBtn.offsetWidth; // restart animazione
     this.els.noseBtn.classList.add('counted');
-    this.flashScore(total_ms);
+    const score = this.flashScore(total_ms);
+    if (this.cues) this.cues.rep(score);
     if (navigator.vibrate) navigator.vibrate(15);
 
     // Persistenza (best-effort, non blocca l'allenamento).
@@ -138,14 +156,15 @@ export class Workout {
   flashScore(total_ms) {
     const ideal = this.plan.ideal_rep_ms;
     const t = this.els.motionText;
-    if (total_ms < ideal * 0.8) { t.textContent = '⚡ Troppo veloce — rallenta!'; t.style.color = 'var(--warn)'; }
-    else if (total_ms > ideal * 1.2) { t.textContent = '🐢 Troppo lento — spingi!'; t.style.color = 'var(--bad)'; }
-    else { t.textContent = '🎯 Ritmo perfetto!'; t.style.color = 'var(--good)'; }
+    if (total_ms < ideal * 0.8) { t.textContent = '⚡ Troppo veloce — rallenta!'; t.style.color = 'var(--warn)'; return 'fast'; }
+    if (total_ms > ideal * 1.2) { t.textContent = '🐢 Troppo lento — spingi!'; t.style.color = 'var(--bad)'; return 'slow'; }
+    t.textContent = '🎯 Ritmo perfetto!'; t.style.color = 'var(--good)'; return 'ideal';
   }
 
   endSet() {
     if (this.setIndex >= this.totalSets) { this.finish(); return; }
     this.resting = true;
+    if (this.cues) this.cues.say('Serie completata. Recupero.');
     let remaining = Math.round(this.plan.rest_ms / 1000);
     const { phaseLabel, restSkip, motionText } = this.els;
     restSkip.classList.remove('hidden');
@@ -169,6 +188,8 @@ export class Workout {
     this.repInSet = 0;
     this.els.noseCount.textContent = '0';
     this.lastRepTime = performance.now();
+    this._phase = null;
+    if (this.cues) this.cues.say('Prossima serie. Via!');
     this.updateLabels();
   }
 
@@ -195,5 +216,6 @@ export class Workout {
     if (this._restTimer) clearInterval(this._restTimer);
     if (this.stopDetector) { try { this.stopDetector(); } catch {} }
     if (this._noseHandler) this.els.noseBtn.removeEventListener('pointerdown', this._noseHandler);
+    if (this.wakeLock) { try { this.wakeLock.release(); } catch {} this.wakeLock = null; }
   }
 }

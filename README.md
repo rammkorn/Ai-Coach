@@ -32,10 +32,17 @@ allena, sessione dopo sessione, per non far desistere la persona.
 - **Modalità MAX** — quando sei in forma e in striscia positiva, a fine
   sessione il coach ti propone di "dare il massimo" con un **cambio totale
   dell'interfaccia** (tema rosso pulsante) per motivarti.
-- **Promemoria** — notifiche per riprendere l'allenamento (richiede il permesso
-  del browser).
+- **Cue audio + voce** — beep e voce ("giù"/"su") sincronizzati con la barra,
+  così segui il ritmo **senza guardare lo schermo** (durante una flessione
+  guardi il pavimento). Interruttore 🔊 nella schermata di allenamento.
+- **Grafico dei progressi** — ripetizioni per sessione nel tempo, con la
+  precisione del ritmo in sovrapposizione e le sessioni MAX evidenziate.
+- **Schermo sempre acceso** durante l'allenamento (Screen Wake Lock).
+- **Promemoria push reali** — notifiche Web Push (VAPID) per riprendere
+  l'allenamento, **anche ad app chiusa** se il server è attivo. La frequenza si
+  adatta alle sessioni/giorno consigliate. Fallback locale dove il push non c'è.
 
-## Avvio
+## Avvio rapido
 
 ```bash
 npm install
@@ -43,10 +50,23 @@ npm start
 # apri http://localhost:3000
 ```
 
-> I sensori (telecamera, microfono, prossimità) e le notifiche richiedono un
-> **contesto sicuro**: `localhost` va bene; in rete serve **HTTPS**. Da telefono,
-> esponi il server con un tunnel HTTPS (es. `ngrok`) per usare i sensori reali.
-> Senza sensori, il **pulsante naso** funziona sempre.
+## 📱 Provarla dal telefono (con tutti i sensori)
+
+I sensori (telecamera, microfono, prossimità) e le notifiche push richiedono un
+**contesto sicuro**: `localhost` va bene sul computer, ma da telefono serve
+**HTTPS**. Il modo più veloce è un tunnel pubblico:
+
+```bash
+npm run share
+```
+
+Questo avvia il server **e** crea un URL HTTPS pubblico tramite Cloudflare
+Tunnel (es. `https://qualcosa.trycloudflare.com`): aprilo sul telefono e usa
+telecamera/microfono/notifiche reali. Nessun account richiesto.
+
+> Alternative: `npx ngrok http 3000`, oppure mettila online con il `Dockerfile`
+> incluso (Render/Fly.io/Railway/VPS). Senza HTTPS, il **pulsante naso**
+> funziona comunque sempre come riserva.
 
 ## Architettura
 
@@ -54,13 +74,18 @@ npm start
 server.js              Server Express + API REST + autenticazione a token
 src/db.js              Database SQLite (file unico) e helper, hashing password (scrypt)
 src/coach.js           Motore adattivo: ritmo, progressione, modalità MAX
+src/push.js            Web Push (VAPID): invio notifiche + scheduler promemoria
 public/index.html      Shell della SPA (3 schermate + overlay)
 public/css/styles.css  Tema mobile-first, barra del ritmo, tema MODALITÀ MAX
 public/js/app.js       Routing schermate, dashboard, overlay risultati
 public/js/api.js        Wrapper sull'API REST
-public/js/detection.js Rilevamento: prossimità / telecamera / microfono / touch
-public/js/workout.js   Barra del ritmo + cronometraggio e punteggio ripetizioni
-public/sw.js           Service worker (offline + notifiche)
+public/js/detection.js Rilevamento: prossimità / telecamera (FaceDetector) / microfono / touch
+public/js/workout.js   Barra del ritmo + cronometraggio, audio cue, wake lock
+public/js/audio.js     Cue audio/voce sincronizzati col ritmo
+public/js/chart.js     Grafico SVG dei progressi
+public/sw.js           Service worker (offline + push)
+scripts/share.sh       Avvio + tunnel HTTPS pubblico per il telefono
+Dockerfile             Immagine pronta al deploy
 ```
 
 ## API principali
@@ -74,6 +99,9 @@ public/sw.js           Service worker (offline + notifiche)
 | `POST` | `/api/sessions` | Avvia una sessione (opzione `max_mode`) |
 | `POST` | `/api/sessions/:id/rep` | Registra una ripetizione (durata reale) |
 | `POST` | `/api/sessions/:id/finish` | Chiude la sessione, fa evolvere il piano |
+| `GET`  | `/api/push/key` | Chiave pubblica VAPID per il client |
+| `POST` | `/api/push/subscribe` | Registra il dispositivo per i promemoria |
+| `POST` | `/api/push/test` | Invia una notifica di prova |
 
 Il file del database è impostabile con la variabile d'ambiente `COACH_DB`, la
 porta con `PORT`.

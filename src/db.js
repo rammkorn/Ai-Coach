@@ -60,7 +60,33 @@ CREATE TABLE IF NOT EXISTS reps (
 
 CREATE INDEX IF NOT EXISTS idx_sessions_profile ON sessions(profile_id);
 CREATE INDEX IF NOT EXISTS idx_reps_session ON reps(session_id);
+
+-- Coppie chiave/valore a livello app (es. chiavi VAPID stabili).
+CREATE TABLE IF NOT EXISTS app_meta (
+  key   TEXT PRIMARY KEY,
+  value TEXT
+);
+
+-- Iscrizioni Web Push (una per dispositivo/browser).
+CREATE TABLE IF NOT EXISTS push_subs (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  profile_id  INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  endpoint    TEXT NOT NULL UNIQUE,
+  sub         TEXT NOT NULL,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_push_profile ON push_subs(profile_id);
 `);
+
+// Migrazioni leggere: aggiunge colonne ai profili esistenti se mancano.
+function ensureColumn(table, column, def) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!cols.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);
+  }
+}
+ensureColumn('profiles', 'reminder_interval_h', 'REAL');
+ensureColumn('profiles', 'next_reminder_at', 'TEXT');
 
 // ---- Password helpers (scrypt, niente dipendenze esterne) -------------------
 export function hashPassword(password) {
@@ -168,6 +194,63 @@ export function profileStats(profileId) {
     SELECT MAX(completed_reps) AS best_reps FROM sessions WHERE profile_id = ?
   `).get(profileId);
   return { ...totals, best_reps: best.best_reps || 0 };
+}
+
+// ---- App meta (chiave/valore) ----------------------------------------------
+export function getMeta(key) {
+  const row = db.prepare('SELECT value FROM app_meta WHERE key = ?').get(key);
+  return row ? row.value : null;
+}
+export function setMeta(key, value) {
+  db.prepare('INSERT INTO app_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
+    .run(key, value);
+}
+
+// ---- Iscrizioni push e promemoria ------------------------------------------
+export function savePushSub(profileId, subscription, intervalHours) {
+  db.prepare(`
+    INSERT INTO push_subs (profile_id, endpoint, sub) VALUES (?, ?, ?)
+    ON CONFLICT(endpoint) DO UPDATE SET profile_id = excluded.profile_id, sub = excluded.sub
+  `).run(profileId, subscription.endpoint, JSON.stringify(subscription));
+  const next = new Date(Date.now() + intervalHours * 3600000).toISOString();
+  db.prepare('UPDATE profiles SET reminder_interval_h = ?, next_reminder_at = ? WHERE id = ?')
+    .run(intervalHours, next, profileId);
+}
+
+export function clearReminder(profileId) {
+  db.prepare('UPDATE profiles SET next_reminder_at = NULL WHERE id = ?').run(profileId);
+}
+
+export function subsForProfile(profileId) {
+  return db.prepare('SELECT * FROM push_subs WHERE profile_id = ?').all(profileId)
+    .map((r) => ({ ...r, sub: JSON.parse(r.sub) }));
+}
+
+export function deleteSub(endpoint) {
+  db.prepare('DELETE FROM push_subs WHERE endpoint = ?').run(endpoint);
+}
+
+// Profili con un promemoria scaduto (per lo scheduler).
+export function dueReminders(nowIso) {
+  return db.prepare(`
+    SELECT p.id, p.name, p.reminder_interval_h, p.last_session_at
+    FROM profiles p
+    WHERE p.next_reminder_at IS NOT NULL AND p.next_reminder_at <= ?
+  `).all(nowIso);
+}
+
+export function rescheduleReminder(profileId, intervalHours) {
+  const next = new Date(Date.now() + (intervalHours || 8) * 3600000).toISOString();
+  db.prepare('UPDATE profiles SET next_reminder_at = ? WHERE id = ?').run(next, profileId);
+}
+
+// Serie storica per i grafici dei progressi (ordine cronologico crescente).
+export function progressSeries(profileId, limit = 30) {
+  return db.prepare(`
+    SELECT started_at, completed_reps, planned_reps, tempo_accuracy, max_mode
+    FROM sessions WHERE profile_id = ? AND ended_at IS NOT NULL
+    ORDER BY started_at ASC LIMIT ?
+  `).all(profileId, limit);
 }
 
 export default db;

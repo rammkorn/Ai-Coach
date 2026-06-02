@@ -63,16 +63,18 @@ export function proximityDetector() {
 }
 
 // ---- 2) Telecamera frontale -------------------------------------------------
-// Misura la luminosità media del quadro: avvicinando il volto il fotogramma si
-// scurisce/cambia in modo marcato. Quando il livello supera una soglia (giù) e
-// poi torna sotto (su) conta una ripetizione. Calibrazione automatica.
+// Strategia preferita: FaceDetector API — segue la dimensione del volto, che
+// AUMENTA scendendo (volto più vicino) e DIMINUISCE risalendo. Più robusto della
+// sola luminosità. Se FaceDetector non è disponibile, ripiega sull'analisi della
+// luminosità media del fotogramma. In entrambi i casi: superata la soglia "giù"
+// e tornati sotto "su" => una ripetizione. Calibrazione automatica continua.
 export function cameraDetector(videoEl, canvasEl) {
   return makeDetector({
     name: 'camera',
     available: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
     startImpl: async ({ onRep, onLevel }) => {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: 160, height: 120 },
+        video: { facingMode: 'user', width: 320, height: 240 },
         audio: false,
       });
       videoEl.srcObject = stream;
@@ -80,32 +82,54 @@ export function cameraDetector(videoEl, canvasEl) {
       const ctx = canvasEl.getContext('2d', { willReadFrequently: true });
       canvasEl.width = 64; canvasEl.height = 48;
 
-      let baseline = null;   // luminosità a riposo
-      let down = false;
-      let raf;
-      const THRESH = 0.18;   // variazione relativa per considerare "giù"
+      const faceDetector = ('FaceDetector' in window)
+        ? new window.FaceDetector({ fastMode: true, maxDetectedFaces: 1 })
+        : null;
 
-      const loop = () => {
+      let baseline = null;   // riferimento a riposo (dimensione volto o luminosità)
+      let down = false;
+      let running = true;
+      const THRESH = faceDetector ? 0.22 : 0.18; // variazione relativa per "giù"
+
+      // Misura il segnale corrente (0..1): area del volto se disponibile,
+      // altrimenti scostamento di luminosità.
+      const measure = async () => {
+        if (faceDetector) {
+          try {
+            const faces = await faceDetector.detect(videoEl);
+            if (faces.length) {
+              const b = faces[0].boundingBox;
+              const vw = videoEl.videoWidth || 320, vh = videoEl.videoHeight || 240;
+              return (b.width * b.height) / (vw * vh); // frazione di quadro occupata
+            }
+          } catch { /* fallback luminosità sotto */ }
+        }
         ctx.drawImage(videoEl, 0, 0, 64, 48);
         const { data } = ctx.getImageData(0, 0, 64, 48);
         let sum = 0;
-        for (let i = 0; i < data.length; i += 4) sum += (data[i] + data[i + 1] + data[i + 2]);
-        const bright = sum / (data.length / 4) / (3 * 255); // 0..1
-        if (baseline == null) baseline = bright;
-        baseline = baseline * 0.98 + bright * 0.02; // adattamento lento
+        for (let i = 0; i < data.length; i += 4) sum += data[i] + data[i + 1] + data[i + 2];
+        return sum / (data.length / 4) / (3 * 255);
+      };
 
-        const delta = Math.abs(bright - baseline) / (baseline + 0.001);
-        onLevel(Math.min(1, delta / (THRESH * 1.6)));
+      const loop = async () => {
+        if (!running) return;
+        const value = await measure();
+        if (baseline == null) baseline = value;
+        baseline = baseline * 0.97 + value * 0.03; // adattamento lento
+
+        const delta = Math.abs(value - baseline) / (baseline + 0.001);
+        onLevel(Math.min(1, delta / (THRESH * 1.4)));
 
         if (!down && delta > THRESH) down = true;
         else if (down && delta < THRESH * 0.5) { down = false; onRep(); }
 
-        raf = requestAnimationFrame(loop);
+        // FaceDetector è asincrono e più pesante: cadenziamo a ~20fps.
+        setTimeout(() => requestAnimationFrame(loop), faceDetector ? 50 : 0);
       };
-      raf = requestAnimationFrame(loop);
+      requestAnimationFrame(loop);
 
       return () => {
-        cancelAnimationFrame(raf);
+        running = false;
         stream.getTracks().forEach((t) => t.stop());
         videoEl.srcObject = null;
       };
