@@ -64,9 +64,11 @@ Questo avvia il server **e** crea un URL HTTPS pubblico tramite Cloudflare
 Tunnel (es. `https://qualcosa.trycloudflare.com`): aprilo sul telefono e usa
 telecamera/microfono/notifiche reali. Nessun account richiesto.
 
-> Alternative: `npx ngrok http 3000`, oppure mettila online con il `Dockerfile`
-> incluso (Render/Fly.io/Railway/VPS). Senza HTTPS, il **pulsante naso**
-> funziona comunque sempre come riserva.
+> Alternative: `npx ngrok http 3000`, oppure mettila online in modo stabile su
+> **Fly.io** — guida passo-passo in [`DEPLOY-FLY.md`](./DEPLOY-FLY.md) (URL
+> `https://…fly.dev` con sensori e push attivi). Esiste anche il `Dockerfile`
+> per Render/Railway/VPS. Senza HTTPS, il **pulsante naso** funziona comunque
+> sempre come riserva.
 
 ## Architettura
 

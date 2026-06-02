@@ -1,0 +1,32 @@
+# Configurazione Fly.io.
+# ⚠️  "app" deve essere un nome UNICO a livello globale: se è già preso,
+#     cambialo (o lascia che `fly launch` ne proponga uno).
+app = "ai-coach-flessioni"
+primary_region = "fra"   # Frankfurt (EU). Cambia se preferisci (es. "cdg", "mad").
+
+[build]
+  # Usa il Dockerfile incluso.
+
+[env]
+  PORT = "3000"
+  COACH_DB = "/data/coach.db"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  # Teniamo la macchina sempre accesa così lo scheduler dei promemoria push
+  # può inviare le notifiche. Per risparmiare puoi mettere auto_stop = true,
+  # ma in quel caso i promemoria a macchina spenta non partono.
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+
+# Persistenza del database tra i redeploy: scommenta dopo aver creato il volume
+#   fly volumes create coach_data --size 1 --region fra
+# [mounts]
+#   source = "coach_data"
+#   destination = "/data"

@@ -1,0 +1,11 @@
+node_modules
+npm-debug.log
+coach.db
+coach.db-journal
+coach.db-wal
+coach.db-shm
+.git
+.gitignore
+*.log
+.DS_Store
+scripts/share.sh

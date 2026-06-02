@@ -11,8 +11,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3 build-e
 COPY . .
 
 ENV PORT=3000
-# Persisti il database su un volume montato qui per non perdere i profili.
+# Il database vive qui. Funziona già così; montando un volume Fly su /data
+# diventa persistente anche tra i redeploy (vedi DEPLOY-FLY.md).
 ENV COACH_DB=/data/coach.db
-VOLUME ["/data"]
+RUN mkdir -p /data
 EXPOSE 3000
 CMD ["node", "server.js"]
