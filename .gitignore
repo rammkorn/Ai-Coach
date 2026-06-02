@@ -1,0 +1,8 @@
+node_modules/
+# Database file is generated at runtime; keep it local.
+coach.db
+coach.db-journal
+coach.db-wal
+coach.db-shm
+*.log
+.DS_Store

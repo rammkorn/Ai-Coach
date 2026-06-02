@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0e1726" />
+  <title>AI Coach Flessioni</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- ============ SCHERMATA 1: scelta / creazione profilo ============ -->
+    <section id="screen-auth" class="screen active">
+      <header class="hero">
+        <div class="logo">💪</div>
+        <h1>AI Coach <span>Flessioni</span></h1>
+        <p class="tagline">Il coach che si evolve con te.</p>
+      </header>
+
+      <div id="auth-list" class="card">
+        <h2>Bentornato</h2>
+        <p class="muted">Scegli un profilo esistente</p>
+        <ul id="profiles" class="profiles"></ul>
+        <button id="btn-show-create" class="btn ghost">+ Crea un nuovo profilo</button>
+      </div>
+
+      <!-- Login con password -->
+      <div id="auth-login" class="card hidden">
+        <h2>Accedi</h2>
+        <p class="muted">Profilo: <strong id="login-name"></strong></p>
+        <input id="login-pass" type="password" inputmode="text" placeholder="Password" autocomplete="current-password" />
+        <button id="btn-login" class="btn primary">Entra</button>
+        <button class="btn ghost" data-back="auth">Indietro</button>
+        <p id="login-error" class="error"></p>
+      </div>
+
+      <!-- Creazione profilo -->
+      <div id="auth-create" class="card hidden">
+        <h2>Nuovo profilo</h2>
+        <input id="new-name" placeholder="Nome" autocomplete="username" />
+        <input id="new-pass" type="password" placeholder="Password" autocomplete="new-password" />
+        <div class="row">
+          <input id="new-age" type="number" min="10" max="100" placeholder="Età" />
+          <input id="new-weight" type="number" min="20" max="250" placeholder="Peso (kg)" />
+        </div>
+        <label class="field-label">Livello attuale</label>
+        <select id="new-exp">
+          <option value="principiante">Principiante</option>
+          <option value="intermedio">Intermedio</option>
+          <option value="avanzato">Avanzato</option>
+        </select>
+        <button id="btn-create" class="btn primary">Crea e inizia</button>
+        <button class="btn ghost" data-back="auth">Indietro</button>
+        <p id="create-error" class="error"></p>
+      </div>
+    </section>
+
+    <!-- ============ SCHERMATA 2: dashboard / profilo ============ -->
+    <section id="screen-dash" class="screen">
+      <header class="topbar">
+        <div>
+          <div class="muted small">Profilo</div>
+          <h2 id="dash-name">—</h2>
+        </div>
+        <span id="dash-level" class="badge">Principiante</span>
+        <button id="btn-logout" class="icon-btn" title="Esci">⎋</button>
+      </header>
+
+      <div id="coach-banner" class="coach-banner"></div>
+
+      <div class="stats-grid">
+        <div class="stat"><span id="stat-sessions">0</span><label>Sessioni</label></div>
+        <div class="stat"><span id="stat-reps">0</span><label>Ripetizioni</label></div>
+        <div class="stat"><span id="stat-best">0</span><label>Record</label></div>
+        <div class="stat"><span id="stat-accuracy">0%</span><label>Ritmo ok</label></div>
+      </div>
+
+      <div class="card plan-card">
+        <h3>Prossima sessione consigliata</h3>
+        <p id="plan-summary" class="plan-summary">—</p>
+        <div class="tempo-preview">
+          <span>Ritmo ideale di una ripetizione:</span>
+          <strong id="plan-tempo">—</strong>
+        </div>
+        <button id="btn-start" class="btn primary big">▶︎ Inizia allenamento</button>
+        <button id="btn-notify" class="btn ghost">🔔 Promemoria allenamento</button>
+      </div>
+
+      <div class="card">
+        <h3>Storico</h3>
+        <ul id="history" class="history"></ul>
+      </div>
+    </section>
+
+    <!-- ============ SCHERMATA 3: allenamento attivo ============ -->
+    <section id="screen-workout" class="screen workout">
+      <header class="workout-head">
+        <button id="btn-quit" class="icon-btn">✕</button>
+        <div class="set-info">
+          <span id="set-label">Serie 1</span>
+          <span id="rep-label">0 / 0</span>
+        </div>
+        <span id="detect-badge" class="badge small">touch</span>
+      </header>
+
+      <!-- Barra del ritmo: indica il tempo ideale del movimento -->
+      <div class="tempo-zone">
+        <div id="phase-label" class="phase-label">Preparati…</div>
+        <div class="tempo-bar-wrap">
+          <div id="tempo-bar" class="tempo-bar"></div>
+          <div class="tempo-target-line"></div>
+        </div>
+        <div class="tempo-legend">
+          <span class="dot down"></span> Giù
+          <span class="dot pause"></span> Pausa
+          <span class="dot up"></span> Su
+        </div>
+      </div>
+
+      <!-- Indicatore del movimento rilevato (vivo) -->
+      <div class="motion-zone">
+        <div id="motion-fill" class="motion-fill"></div>
+        <div id="motion-text" class="motion-text">In attesa del movimento…</div>
+      </div>
+
+      <!-- Pulsante NASO: grande, al centro, fallback sempre disponibile -->
+      <button id="nose-btn" class="nose-btn">
+        <span class="nose-emoji">👃</span>
+        <span class="nose-text">PREMI COL NASO</span>
+        <span class="nose-count" id="nose-count">0</span>
+      </button>
+
+      <div class="workout-controls">
+        <button id="btn-rest-skip" class="btn ghost hidden">Salta recupero</button>
+        <button id="btn-finish" class="btn primary">Concludi sessione</button>
+      </div>
+
+      <!-- Camera nascosta usata per rilevare il movimento col volto -->
+      <video id="cam" playsinline muted class="cam-hidden"></video>
+      <canvas id="cam-canvas" class="cam-hidden"></canvas>
+    </section>
+
+    <!-- ============ Overlay riepilogo / proposta MAX ============ -->
+    <div id="overlay" class="overlay hidden">
+      <div id="overlay-card" class="overlay-card">
+        <h2 id="ov-title">Sessione completata</h2>
+        <div id="ov-body"></div>
+        <div id="ov-actions" class="overlay-actions"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

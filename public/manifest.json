@@ -1,0 +1,18 @@
+{
+  "name": "AI Coach Flessioni",
+  "short_name": "Coach Flessioni",
+  "description": "Coach AI auto-evolutivo per le flessioni con ritmo guidato e rilevamento del movimento.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0e1726",
+  "theme_color": "#0e1726",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
