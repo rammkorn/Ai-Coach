@@ -64,11 +64,25 @@ Questo avvia il server **e** crea un URL HTTPS pubblico tramite Cloudflare
 Tunnel (es. `https://qualcosa.trycloudflare.com`): aprilo sul telefono e usa
 telecamera/microfono/notifiche reali. Nessun account richiesto.
 
-> Alternative: `npx ngrok http 3000`, oppure mettila online in modo stabile su
-> **Fly.io** — guida passo-passo in [`DEPLOY-FLY.md`](./DEPLOY-FLY.md) (URL
-> `https://…fly.dev` con sensori e push attivi). Esiste anche il `Dockerfile`
-> per Render/Railway/VPS. Senza HTTPS, il **pulsante naso** funziona comunque
-> sempre come riserva.
+### 🏠 Hai Home Assistant + Cloudflare? (consigliato: gratis e sempre attivo)
+
+Se hai un Home Assistant OS sempre acceso con un tunnel Cloudflare, puoi
+ospitare l'app completa (server + SQLite + push reali) **a costo zero**, come
+**add-on**:
+
+1. Impostazioni → Add-on → Store → ⋮ → **Repository** → incolla
+   `https://github.com/rammkorn/ai-coach`.
+2. Installa e avvia **AI Coach Flessioni** (ascolta sulla porta 3000).
+3. Nell'add-on **Cloudflared**, aggiungi un `additional_hosts` che punta a
+   `http://<IP-del-tuo-HA>:3000` e crea il CNAME su Cloudflare.
+
+Dettagli e troubleshooting: [`ai_coach/README.md`](./ai_coach/README.md).
+
+### Altre opzioni
+
+> `npx ngrok http 3000`, oppure **Fly.io** — guida in
+> [`DEPLOY-FLY.md`](./DEPLOY-FLY.md) — o il `Dockerfile` per Render/Railway/VPS.
+> Senza HTTPS, il **pulsante naso** funziona comunque sempre come riserva.
 
 ## Architettura
 

@@ -1,0 +1,24 @@
+name: AI Coach Flessioni
+version: "1.0.0"
+slug: ai_coach
+description: >-
+  Coach AI auto-evolutivo per le flessioni: progressione adattiva, ritmo guidato,
+  rilevamento del movimento e notifiche push. Tutto su un file SQLite persistente.
+url: https://github.com/rammkorn/ai-coach
+# Architetture supportate (le più comuni per Home Assistant).
+arch:
+  - aarch64
+  - amd64
+  - armv7
+# Avvio gestito dal nostro CMD (niente init di sistema dell'add-on).
+init: false
+# Espone la porta 3000 sull'host, così il tunnel Cloudflare può puntarci.
+ports:
+  3000/tcp: 3000
+ports_description:
+  3000/tcp: Interfaccia web del coach — puntaci l'additional_host di Cloudflared
+# Contatto opzionale per le chiavi VAPID delle notifiche push.
+options:
+  vapid_contact: "mailto:rammkorn@gmail.com"
+schema:
+  vapid_contact: str?
