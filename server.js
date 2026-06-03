@@ -22,6 +22,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+
+// Endpoint di salute: utile per verificare l'origine dietro al tunnel/proxy
+// (es. `curl https://coach.tuodominio/health` -> "ok").
+app.get('/health', (req, res) => res.type('text').send('ok'));
+
 app.use(express.static(join(__dirname, 'public')));
 
 // --- Sessioni di autenticazione in memoria (token -> profileId) -------------

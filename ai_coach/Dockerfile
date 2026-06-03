@@ -5,7 +5,7 @@ FROM node:22-bookworm-slim
 
 # Da quale repo/branch prendere l'app. Aggiorna REF se sposti il codice su main.
 ARG REPO=https://github.com/rammkorn/ai-coach
-ARG REF=claude/pushup-coaching-app-Gpr1I
+ARG REF=main
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git python3 build-essential ca-certificates \

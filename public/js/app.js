@@ -356,4 +356,12 @@ async function init() {
   show('auth');
 }
 
-init();
+// Avvio difensivo: se qualcosa fallisce in fase di init, mostra un messaggio
+// VISIBILE invece di lasciare una pagina bianca muta.
+init().catch((e) => {
+  console.error('Init fallito:', e);
+  const box = document.createElement('div');
+  box.style.cssText = 'margin:16px;padding:16px;border-radius:12px;background:#7f1d1d;color:#fff;font-family:sans-serif;line-height:1.4';
+  box.textContent = 'Errore di avvio dell\'app: ' + ((e && e.message) || e) + '. Ricarica la pagina; se persiste, controlla i log del server.';
+  (document.getElementById('app') || document.body).prepend(box);
+});
