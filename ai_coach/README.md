@@ -12,17 +12,17 @@ persistente in `/data` (sopravvive a riavvii e aggiornamenti).
 2. Incolla: `https://github.com/rammkorn/ai-coach` e premi **Aggiungi**.
 3. Trova **AI Coach Flessioni** nello store e premi **Installa** (la prima build
    richiede qualche minuto).
-4. **Avvia** l'add-on. L'app ascolta sulla porta **3000**.
+4. **Avvia** l'add-on. L'app ascolta sulla porta **8888**.
 
 ## Esporre con il tunnel Cloudflare (che hai già)
 
 Nell'add-on **Cloudflared**, aggiungi alle opzioni un host che punta alla porta
-3000 dell'host Home Assistant (usa l'IP locale del tuo HA):
+8888 dell'host Home Assistant (usa l'IP locale del tuo HA):
 
 ```yaml
 additional_hosts:
   - hostname: coach.iltuodominio.com
-    service: http://192.168.1.X:3000   # IP locale del tuo Home Assistant
+    service: http://192.168.1.X:8888   # IP locale del tuo Home Assistant
 ```
 
 Poi crea in Cloudflare un record **CNAME** per `coach.iltuodominio.com` che punta

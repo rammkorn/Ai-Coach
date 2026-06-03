@@ -1,5 +1,5 @@
 name: AI Coach Flessioni
-version: "1.0.1"
+version: "1.0.2"
 slug: ai_coach
 description: >-
   Coach AI auto-evolutivo per le flessioni: progressione adattiva, ritmo guidato,
@@ -14,9 +14,9 @@ arch:
 init: false
 # Espone la porta 3000 sull'host, così il tunnel Cloudflare può puntarci.
 ports:
-  3000/tcp: 3000
+  8888/tcp: 8888
 ports_description:
-  3000/tcp: Interfaccia web del coach — puntaci l'additional_host di Cloudflared
+  8888/tcp: Interfaccia web del coach — puntaci l'additional_host di Cloudflared
 # Contatto opzionale per le chiavi VAPID delle notifiche push.
 options:
   vapid_contact: "mailto:rammkorn@gmail.com"

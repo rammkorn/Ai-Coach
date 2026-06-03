@@ -17,7 +17,8 @@ RUN apt-get update \
 WORKDIR /app
 
 # Porta e database persistente: /data sopravvive a riavvii e aggiornamenti.
-ENV PORT=3000 COACH_DB=/data/coach.db
+ENV PORT=8888 COACH_DB=/data/coach.db
+EXPOSE 8888
 RUN mkdir -p /data
 
 # Legge le opzioni dell'add-on (es. vapid_contact) e avvia il server.
