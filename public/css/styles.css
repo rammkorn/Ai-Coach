@@ -201,6 +201,17 @@ input:focus, select:focus { outline: 2px solid var(--primary); border-color: tra
 
 .cam-hidden { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 
+/* Stato/qualità del sensore (ti vede? ti sente?) */
+.detect-status { text-align: center; min-height: 1.2em; font-weight: 700; font-size: 0.95rem; margin: -8px 0 6px; }
+
+/* Anteprima telecamera */
+.cam-preview { position: relative; margin: 0 auto 12px; width: 160px; border-radius: 14px; overflow: hidden; border: 2px solid var(--accent); background: #000; }
+.cam-preview video { width: 100%; height: auto; display: block; transform: scaleX(-1); /* effetto specchio */ }
+.cam-preview .cam-hint { position: absolute; left: 0; right: 0; bottom: 0; font-size: 0.65rem; text-align: center; padding: 3px; background: rgba(0,0,0,0.55); color: #fff; }
+
+/* Pulsante "pericoloso" (cancellazioni) */
+.btn.ghost.danger { color: var(--bad); border-color: rgba(248, 113, 113, 0.4); }
+
 /* Pulse quando una rip viene contata */
 .counted { animation: pop 0.3s ease; }
 @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.08); } 100% { transform: scale(1); } }

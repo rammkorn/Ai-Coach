@@ -1,5 +1,5 @@
 name: AI Coach Flessioni
-version: "1.0.2"
+version: "1.0.3"
 slug: ai_coach
 description: >-
   Coach AI auto-evolutivo per le flessioni: progressione adattiva, ritmo guidato,
@@ -17,8 +17,16 @@ ports:
   8888/tcp: 8888
 ports_description:
   8888/tcp: Interfaccia web del coach — puntaci l'additional_host di Cloudflared
-# Contatto opzionale per le chiavi VAPID delle notifiche push.
+# Opzioni configurabili dall'interfaccia di Home Assistant.
 options:
   vapid_contact: "mailto:rammkorn@gmail.com"
+  reset_profile: ""
+  reset_password: ""
 schema:
+  # Contatto per le chiavi VAPID delle notifiche push.
   vapid_contact: str?
+  # Reset password "amministrativo" (per password dimenticate degli utenti
+  # interni): scrivi il NOME del profilo e la NUOVA password, salva e riavvia
+  # l'add-on. Poi svuota di nuovo i due campi.
+  reset_profile: str?
+  reset_password: str?

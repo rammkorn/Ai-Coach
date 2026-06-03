@@ -142,6 +142,32 @@ async function refreshDashboard() {
   try { enterDashboard(await api.me()); } catch { logout(); }
 }
 
+// ---------- Gestione account -------------------------------------------------
+async function changePassword() {
+  const np = prompt('Nuova password:');
+  if (np == null) return;
+  if (np.length < 1) { alert('Password non valida.'); return; }
+  const confirm2 = prompt('Ripeti la nuova password:');
+  if (confirm2 !== np) { alert('Le password non coincidono.'); return; }
+  try {
+    await api.changePassword(np);
+    alert('Password aggiornata. ✅');
+  } catch (e) {
+    alert('Errore: ' + e.message);
+  }
+}
+
+async function clearHistory() {
+  if (!confirm('Cancellare TUTTE le sessioni e i progressi di questo profilo? L\'operazione non è reversibile.')) return;
+  try {
+    const r = await api.clearHistory();
+    alert(`Storico cancellato (${r.removed} sessioni). `);
+    refreshDashboard();
+  } catch (e) {
+    alert('Errore: ' + e.message);
+  }
+}
+
 function logout() {
   clearToken();
   state.dashboard = null;
@@ -156,7 +182,7 @@ function chooseDetection() {
     const options = [
       { key: 'auto', label: '✨ Automatico (consigliato)', desc: 'Sceglie il sensore migliore disponibile' },
       { key: 'camera', label: '📷 Telecamera frontale', desc: 'Rileva il volto che sale e scende' },
-      { key: 'mic', label: '🎤 Microfono', desc: 'Conta i piegamenti a VOCE ad alta voce' },
+      { key: 'mic', label: '🎤 Microfono', desc: 'Conta a voce "uno, due, tre…" (audio guida disattivato)' },
       { key: 'proximity', label: '📱 Sensore di prossimità', desc: 'Telefono a terra, avvicina il petto' },
       { key: 'touch', label: '👃 Solo naso (touch)', desc: 'Premi il pulsante col naso' },
     ];
@@ -189,6 +215,8 @@ async function startWorkout(maxMode = false) {
   $('nose-count').textContent = '0';
   $('motion-fill').style.width = '0%';
   $('tempo-bar').style.width = '0%';
+  $('detect-status').textContent = '';
+  $('cam-preview').classList.add('hidden');
   $('phase-label').textContent = maxMode ? 'DAI IL MASSIMO!' : 'Preparati…';
   show('workout');
 
@@ -198,6 +226,7 @@ async function startWorkout(maxMode = false) {
     noseBtn: $('nose-btn'), noseCount: $('nose-count'),
     motionFill: $('motion-fill'), motionText: $('motion-text'),
     detectBadge: $('detect-badge'), restSkip: $('btn-rest-skip'),
+    detectStatus: $('detect-status'), camPreview: $('cam-preview'),
     videoEl: $('cam'), canvasEl: $('cam-canvas'),
   };
 
@@ -330,6 +359,8 @@ function wire() {
   $('btn-logout').addEventListener('click', logout);
   $('btn-start').addEventListener('click', () => startWorkout(false));
   $('btn-notify').addEventListener('click', setupNotifications);
+  $('btn-change-pass').addEventListener('click', changePassword);
+  $('btn-clear-history').addEventListener('click', clearHistory);
 
   $('btn-quit').addEventListener('click', quitWorkout);
   $('btn-finish').addEventListener('click', quitWorkout);

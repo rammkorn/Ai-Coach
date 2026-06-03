@@ -107,6 +107,22 @@ app.get('/api/me', auth, (req, res) => {
   res.json(buildDashboard(store.getProfileById(req.profileId)));
 });
 
+// Cambia la password del profilo loggato.
+app.post('/api/me/password', auth, (req, res) => {
+  const newPassword = req.body && req.body.new_password;
+  if (!newPassword || String(newPassword).length < 1) {
+    return res.status(400).json({ error: 'Password non valida' });
+  }
+  store.updatePassword(req.profileId, String(newPassword));
+  res.json({ ok: true });
+});
+
+// Cancella tutto lo storico (sessioni e ripetizioni) del profilo loggato.
+app.post('/api/me/clear-history', auth, (req, res) => {
+  const removed = store.deleteSessions(req.profileId);
+  res.json({ ok: true, removed });
+});
+
 // --- Sessioni di allenamento -------------------------------------------------
 app.post('/api/sessions', auth, (req, res) => {
   const profile = store.getProfileById(req.profileId);
@@ -249,6 +265,20 @@ app.post('/api/push/unsubscribe', auth, (req, res) => {
 
 initPush();
 startScheduler();
+
+// Reset amministrativo della password da configurazione (per password
+// dimenticate): impostando ADMIN_RESET_PROFILE + ADMIN_RESET_PASSWORD nelle
+// opzioni dell'add-on, all'avvio la password di quel profilo viene reimpostata.
+(function applyAdminReset() {
+  const name = process.env.ADMIN_RESET_PROFILE;
+  const pass = process.env.ADMIN_RESET_PASSWORD;
+  if (name && pass) {
+    const ok = store.resetPasswordByName(name, pass);
+    console.log(ok
+      ? `[AI Coach] Password reimpostata per il profilo "${name}" (reset da configurazione).`
+      : `[AI Coach] Reset password: profilo "${name}" non trovato.`);
+  }
+})();
 
 app.listen(PORT, () => {
   console.log(`AI Coach Flessioni in ascolto su http://localhost:${PORT}`);

@@ -25,13 +25,32 @@ export function proximityDetector() {
   return makeDetector({
     name: 'proximity',
     available: hasGeneric || hasLegacy,
-    startImpl: ({ onRep, onLevel }) => {
+    startImpl: ({ onRep, onLevel, onStatus }) => {
+      // Isteresi + tempo di permanenza per evitare conteggi rapidissimi su
+      // posizioni instabili: serve scendere SOTTO "vicino" e poi risalire SOPRA
+      // "lontano", restando vicino almeno MIN_NEAR_MS.
+      const NEAR = 0.6;       // soglia per considerare "petto vicino" (giù)
+      const FAR = 0.3;        // soglia per considerare "risalito" (su)
+      const MIN_NEAR_MS = 180;
       let near = false;
-      const trigger = (isNear, normalized) => {
-        if (typeof normalized === 'number') onLevel(normalized);
-        if (isNear && !near) { near = true; }
-        else if (!isNear && near) { near = false; onRep(); } // ciclo completo all'allontanarsi
+      let nearSince = 0;
+
+      const feed = (lvlRaw) => {
+        const lvl = Math.max(0, Math.min(1, lvlRaw));
+        onLevel(lvl);
+        const now = performance.now();
+        if (!near && lvl > NEAR) {
+          near = true; nearSince = now;
+          if (onStatus) onStatus({ ok: true, text: 'Giù… 📱' });
+        } else if (near && lvl < FAR) {
+          near = false;
+          if (now - nearSince > MIN_NEAR_MS) {
+            if (onStatus) onStatus({ ok: true, text: 'Su! ✓' });
+            onRep();
+          }
+        }
       };
+
       if (hasGeneric) {
         let sensor;
         try {
@@ -39,8 +58,7 @@ export function proximityDetector() {
           sensor.addEventListener('reading', () => {
             const max = sensor.max || 10;
             const d = sensor.distance == null ? max : sensor.distance;
-            const lvl = 1 - Math.min(1, d / max);
-            trigger(sensor.near === true || d < (max * 0.2), lvl);
+            feed(sensor.near === true ? 1 : 1 - Math.min(1, d / max));
           });
           sensor.start();
           return () => sensor.stop();
@@ -49,8 +67,7 @@ export function proximityDetector() {
       const handler = (e) => {
         const max = e.max || 10;
         const val = e.value == null ? max : e.value;
-        const lvl = 1 - Math.min(1, val / max);
-        trigger(e.near === true || val < max * 0.2, lvl);
+        feed(e.near === true ? 1 : 1 - Math.min(1, val / max));
       };
       window.addEventListener('userproximity', handler);
       window.addEventListener('deviceproximity', handler);
@@ -72,7 +89,7 @@ export function cameraDetector(videoEl, canvasEl) {
   return makeDetector({
     name: 'camera',
     available: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
-    startImpl: async ({ onRep, onLevel }) => {
+    startImpl: async ({ onRep, onLevel, onStatus }) => {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: 320, height: 240 },
         audio: false,
@@ -89,19 +106,22 @@ export function cameraDetector(videoEl, canvasEl) {
       let baseline = null;   // riferimento a riposo (dimensione volto o luminosità)
       let down = false;
       let running = true;
+      let calibFrames = 0;
+      let lastFace = true;   // per il fallback luminosità consideriamo "qualità ok"
       const THRESH = faceDetector ? 0.22 : 0.18; // variazione relativa per "giù"
 
-      // Misura il segnale corrente (0..1): area del volto se disponibile,
-      // altrimenti scostamento di luminosità.
+      // Misura il segnale corrente (0..1) e aggiorna lo stato "qualità posizione".
       const measure = async () => {
         if (faceDetector) {
           try {
             const faces = await faceDetector.detect(videoEl);
-            if (faces.length) {
+            lastFace = faces.length > 0;
+            if (lastFace) {
               const b = faces[0].boundingBox;
               const vw = videoEl.videoWidth || 320, vh = videoEl.videoHeight || 240;
               return (b.width * b.height) / (vw * vh); // frazione di quadro occupata
             }
+            return null; // nessun volto: non aggiorniamo la baseline
           } catch { /* fallback luminosità sotto */ }
         }
         ctx.drawImage(videoEl, 0, 0, 64, 48);
@@ -114,14 +134,31 @@ export function cameraDetector(videoEl, canvasEl) {
       const loop = async () => {
         if (!running) return;
         const value = await measure();
-        if (baseline == null) baseline = value;
-        baseline = baseline * 0.97 + value * 0.03; // adattamento lento
 
-        const delta = Math.abs(value - baseline) / (baseline + 0.001);
-        onLevel(Math.min(1, delta / (THRESH * 1.4)));
+        if (value == null) {
+          // Volto non rilevato: avvisa di sistemarsi, non contare nulla.
+          onLevel(0);
+          if (onStatus) onStatus({ ok: false, text: '👀 Non ti vedo — inquadra testa e spalle' });
+        } else {
+          if (baseline == null) { baseline = value; calibFrames = 0; }
+          baseline = baseline * 0.97 + value * 0.03; // adattamento lento
+          calibFrames++;
 
-        if (!down && delta > THRESH) down = true;
-        else if (down && delta < THRESH * 0.5) { down = false; onRep(); }
+          const delta = Math.abs(value - baseline) / (baseline + 0.001);
+          const quality = Math.min(1, delta / (THRESH * 1.4));
+          onLevel(quality);
+
+          if (onStatus) {
+            if (calibFrames < 25) onStatus({ ok: true, text: '🎯 Calibrazione… resta fermo un attimo' });
+            else if (down) onStatus({ ok: true, text: 'Giù… mantieni' });
+            else onStatus({ ok: true, text: faceDetector ? '✅ Ti vedo — vai col movimento' : '✅ Telecamera attiva' });
+          }
+
+          if (calibFrames >= 15) { // conta solo dopo una minima calibrazione
+            if (!down && delta > THRESH) down = true;
+            else if (down && delta < THRESH * 0.5) { down = false; onRep(); }
+          }
+        }
 
         // FaceDetector è asincrono e più pesante: cadenziamo a ~20fps.
         setTimeout(() => requestAnimationFrame(loop), faceDetector ? 50 : 0);
@@ -145,7 +182,7 @@ export function micDetector() {
   return makeDetector({
     name: 'mic',
     available: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
-    startImpl: async ({ onRep, onLevel }) => {
+    startImpl: async ({ onRep, onLevel, onStatus }) => {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       const AC = window.AudioContext || window.webkitAudioContext;
       const ctx = new AC();
@@ -159,6 +196,7 @@ export function micDetector() {
       let lastRep = 0;
       let noiseFloor = 0.05;
       let raf;
+      if (onStatus) onStatus({ ok: true, text: '🎤 Conta a voce: uno, due, tre…' });
 
       const loop = () => {
         analyser.getByteFrequencyData(buf);
@@ -170,9 +208,12 @@ export function micDetector() {
         onLevel(Math.min(1, over / 0.25));
 
         const now = performance.now();
-        if (!loud && over > 0.12 && now - lastRep > 450) {
-          loud = true; lastRep = now; onRep();
-        } else if (loud && over < 0.05) {
+        // Picco di voce (oltre soglia, con pausa minima) = una ripetizione.
+        if (!loud && over > 0.14 && now - lastRep > 500) {
+          loud = true; lastRep = now;
+          if (onStatus) onStatus({ ok: true, text: '🔊 …ti sento!' });
+          onRep();
+        } else if (loud && over < 0.06) {
           loud = false;
         }
         raf = requestAnimationFrame(loop);

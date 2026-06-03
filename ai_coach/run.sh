@@ -1,9 +1,13 @@
 #!/usr/bin/env sh
-# Estrae l'opzione vapid_contact (se presente) dalle opzioni dell'add-on e avvia
-# il server. /data/options.json è fornito dal Supervisor di Home Assistant.
+# Legge le opzioni dell'add-on (/data/options.json, fornito dal Supervisor) e le
+# passa al server come variabili d'ambiente, poi avvia l'app.
+opt() {
+  node -e "try{process.stdout.write(String((require('/data/options.json')['$1'])||''))}catch(e){}" 2>/dev/null
+}
 if [ -f /data/options.json ]; then
-  VAPID_CONTACT="$(node -e "try{process.stdout.write((require('/data/options.json').vapid_contact)||'')}catch(e){}" 2>/dev/null)"
-  export VAPID_CONTACT
+  export VAPID_CONTACT="$(opt vapid_contact)"
+  export ADMIN_RESET_PROFILE="$(opt reset_profile)"
+  export ADMIN_RESET_PASSWORD="$(opt reset_password)"
 fi
 echo "[AI Coach] Avvio sul porto ${PORT} — DB: ${COACH_DB}"
 exec node server.js

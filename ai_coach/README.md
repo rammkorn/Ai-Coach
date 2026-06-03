@@ -37,6 +37,11 @@ microfono, prossimità e notifiche push funzionano tutti.
 | Opzione | Descrizione |
 |---|---|
 | `vapid_contact` | Email di contatto per le chiavi push VAPID (facoltativa). |
+| `reset_profile` + `reset_password` | Reset password "amministrativo" per password dimenticate: scrivi il **nome** del profilo e la **nuova** password, **salva e riavvia** l'add-on. Poi **svuota di nuovo** i due campi. |
+
+> Gli utenti possono anche **cambiare la propria password** e **cancellare lo
+> storico delle sessioni** direttamente dall'app (sezione *Account* nella
+> dashboard).
 
 > Le chiavi VAPID vengono generate al primo avvio e salvate nel DB: restano
 > stabili finché non cancelli `/data`.

@@ -139,6 +139,25 @@ export function savePlanState(profileId, planState) {
     .run(JSON.stringify(planState), profileId);
 }
 
+// Cambia la password di un profilo (re-hash con nuovo salt).
+export function updatePassword(profileId, password) {
+  const { hash, salt } = hashPassword(password);
+  db.prepare('UPDATE profiles SET pass_hash = ?, pass_salt = ? WHERE id = ?').run(hash, salt, profileId);
+}
+
+// Reset amministrativo per nome profilo (usato dal reset da configurazione add-on).
+export function resetPasswordByName(name, password) {
+  const p = getProfileByName(name);
+  if (!p) return false;
+  updatePassword(p.id, password);
+  return true;
+}
+
+// Cancella tutte le sessioni (e, in cascata, le ripetizioni) di un profilo.
+export function deleteSessions(profileId) {
+  return db.prepare('DELETE FROM sessions WHERE profile_id = ?').run(profileId).changes;
+}
+
 // ---- Sessioni ---------------------------------------------------------------
 export function createSession(profileId, { planned_reps, planned_sets, detection, max_mode, ideal_rep_ms }) {
   const info = db.prepare(`

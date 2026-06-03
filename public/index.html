@@ -97,6 +97,12 @@
         <h3>Storico</h3>
         <ul id="history" class="history"></ul>
       </div>
+
+      <div class="card">
+        <h3>Account</h3>
+        <button id="btn-change-pass" class="btn ghost">🔑 Cambia password</button>
+        <button id="btn-clear-history" class="btn ghost danger">🗑️ Cancella tutte le sessioni</button>
+      </div>
     </section>
 
     <!-- ============ SCHERMATA 3: allenamento attivo ============ -->
@@ -130,6 +136,14 @@
         <div id="motion-fill" class="motion-fill"></div>
         <div id="motion-text" class="motion-text">In attesa del movimento…</div>
       </div>
+      <!-- Stato/qualità del sensore (ti dice se ti vede / ti sente) -->
+      <div id="detect-status" class="detect-status"></div>
+
+      <!-- Anteprima telecamera: visibile solo in modalità telecamera -->
+      <div id="cam-preview" class="cam-preview hidden">
+        <video id="cam" playsinline muted></video>
+        <span class="cam-hint">Inquadrati: testa e spalle nel riquadro</span>
+      </div>
 
       <!-- Pulsante NASO: grande, al centro, fallback sempre disponibile -->
       <button id="nose-btn" class="nose-btn">
@@ -143,8 +157,7 @@
         <button id="btn-finish" class="btn primary">Concludi sessione</button>
       </div>
 
-      <!-- Camera nascosta usata per rilevare il movimento col volto -->
-      <video id="cam" playsinline muted class="cam-hidden"></video>
+      <!-- Canvas nascosto usato per analizzare i fotogrammi -->
       <canvas id="cam-canvas" class="cam-hidden"></canvas>
     </section>
 

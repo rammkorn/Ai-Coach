@@ -32,6 +32,7 @@ export class Workout {
     this.repInSet = 0;
     this.reps = [];               // {total_ms, score, set_index}
     this.lastRepTime = null;      // per misurare la cadenza
+    this.minRepIntervalMs = 400;  // anti-rimbalzo: ignora "ripetizioni" troppo ravvicinate
     this.resting = false;
     this.stopDetector = null;
     this.rafBar = null;
@@ -89,7 +90,7 @@ export class Workout {
   }
 
   async startDetector(preferred) {
-    const { videoEl, canvasEl, noseBtn, detectBadge, motionFill, motionText } = this.els;
+    const { videoEl, canvasEl, noseBtn, detectBadge, motionFill, motionText, detectStatus, camPreview } = this.els;
     let detector;
     if (preferred && detectors[preferred]) {
       const cand = preferred === 'camera'
@@ -103,20 +104,43 @@ export class Workout {
     }
     detectBadge.textContent = detector.name;
 
-    if (detector.name === 'mic') motionText.textContent = 'Conta i piegamenti a voce! 🎤';
-    else if (detector.name === 'camera') motionText.textContent = 'Tieni il volto nel quadro 📷';
+    // Anti-rimbalzo calibrato sulla modalità (prossimità e naso erano i più
+    // "nervosi"): nessuna ripetizione reale dura meno di ~0,4 s.
+    const MIN = { proximity: 550, touch: 400, camera: 450, mic: 500 };
+    this.minRepIntervalMs = MIN[detector.name] || 400;
+
+    // In modalità microfono SILENZIAMO i segnali audio/voce: altrimenti il "su"
+    // e "giù" sintetici verrebbero captati dal microfono e contati come reps.
+    if (detector.name === 'mic') this.cues = null;
+
+    if (detector.name === 'mic') motionText.textContent = 'Conta a voce: uno, due, tre… 🎤';
+    else if (detector.name === 'camera') motionText.textContent = 'Inquadra testa e spalle 📷';
     else if (detector.name === 'proximity') motionText.textContent = 'Avvicina il petto al telefono 📱';
     else motionText.textContent = 'Premi col naso ad ogni piegamento 👃';
+
+    // Mostra l'anteprima della telecamera così vedi se ti inquadra.
+    if (camPreview) camPreview.classList.toggle('hidden', detector.name !== 'camera');
+
+    const setStatus = (s) => {
+      if (!detectStatus) return;
+      detectStatus.textContent = s.text || '';
+      detectStatus.style.color = s.ok === false ? 'var(--bad)' : 'var(--good)';
+    };
+    setStatus({ ok: true, text: '' });
 
     try {
       this.stopDetector = await detector.start({
         onRep: () => this.countRep(detector.name),
-        onLevel: (lvl) => { motionFill.style.width = Math.round(lvl * 100) + '%'; },
+        onLevel: (lvl) => { motionFill.style.width = Math.round((lvl || 0) * 100) + '%'; },
+        onStatus: setStatus,
       });
     } catch (e) {
       // Permesso negato o sensore assente: il pulsante naso resta come fallback.
       detectBadge.textContent = 'touch';
+      this.minRepIntervalMs = 400;
+      if (camPreview) camPreview.classList.add('hidden');
       motionText.textContent = 'Sensore non disponibile: usa il pulsante naso 👃';
+      setStatus({ ok: false, text: 'Permesso negato — usa il naso 👃' });
     }
   }
 
@@ -129,6 +153,9 @@ export class Workout {
   countRep(detection) {
     if (this.resting || this.finished) return;
     const now = performance.now();
+    // Anti-rimbalzo: ignora trigger troppo ravvicinati (naso premuto più volte,
+    // prossimità instabile, eco del microfono…).
+    if (this.lastRepTime && now - this.lastRepTime < this.minRepIntervalMs) return;
     const total_ms = this.lastRepTime ? Math.round(now - this.lastRepTime) : this.plan.ideal_rep_ms;
     this.lastRepTime = now;
 
