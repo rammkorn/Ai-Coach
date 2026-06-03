@@ -1,5 +1,5 @@
 name: AI Coach Flessioni
-version: "1.0.3"
+version: "1.0.4"
 slug: ai_coach
 description: >-
   Coach AI auto-evolutivo per le flessioni: progressione adattiva, ritmo guidato,
@@ -29,4 +29,4 @@ schema:
   # interni): scrivi il NOME del profilo e la NUOVA password, salva e riavvia
   # l'add-on. Poi svuota di nuovo i due campi.
   reset_profile: str?
-  reset_password: str?
+  reset_password: password?
